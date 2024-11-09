@@ -1,0 +1,147 @@
+
+```{r h1 task1}
+library(readr)
+
+csv_file_path_HH1 <- "dataset/Historical Hurricane 1.csv"  
+# Read the CSV file into a data frame
+Historical_Hurricane_1 <- read_csv(csv_file_path_HH1)
+
+# Extract the first two rows
+row1 <- as.character(Historical_Hurricane_1[1, ])
+row2 <- as.character(Historical_Hurricane_1[2, ])
+# Combine row 1 and row 2 with row 2 in parentheses, only if row 2 is not NA
+new_column_names <- ifelse(is.na(row2), row1, paste(row1, "(", row2, ")", sep = ""))
+# Assign these combined names as column names
+colnames(Historical_Hurricane_1) <- new_column_names
+# Remove the first two rows since they're now in the headers
+Historical_Hurricane_1 <- Historical_Hurricane_1[-c(1, 2), ]
+```
+
+```{r h1 task2}
+library(dplyr)
+library(gt)
+# Filter for years 1985 to 2020 and group by Year and Storm_Type to get counts
+storm_summary <- Historical_Hurricane_1 %>%
+  filter(`SEASON(Year)` >= 1985 & `SEASON(Year)` <= 2020) %>%    # Filter for years 1985 to 2020
+  group_by(`SEASON(Year)`, NATURE) %>%             # Group by year and storm type
+  summarise(Storm_Count = n()) %>%           # Count number of storms per type
+  ungroup()
+# View the summary table
+storm_summary
+
+# Create a visual table using gt
+storm_summary_table <- storm_summary %>%
+  gt() %>%
+  tab_header(
+    title = "Storm Counts by Year and Type (1985-2020)",
+    subtitle = "Number of storms recorded annually by storm type"
+  ) %>%
+  cols_label(
+    `SEASON(Year)` = "Year",
+    NATURE = "Storm Type",
+    Storm_Count = "Storm Count"
+  ) %>%
+  fmt_number(
+    columns = vars(Storm_Count),
+    decimals = 0
+  ) %>%
+  data_color(
+    columns = vars(Storm_Count),
+    colors = scales::col_numeric(
+      palette = c("lightblue", "darkblue"),
+      domain = NULL
+    )
+  ) %>%
+  tab_options(
+    table.font.size = "small",
+    column_labels.font.size = "medium"
+  )
+
+# Display the table
+storm_summary_table
+```
+
+```{r h1 task3}
+# Summarize the maximum wind speed by year and storm type
+max_wind_summary <- Historical_Hurricane_1 %>%
+  filter(`SEASON(Year)` >= 1985 & `SEASON(Year)` <= 2020) %>%     # Filter for years 1985 to 2020
+  group_by(`SEASON(Year)`, NATURE) %>%                            # Group by year and storm type
+  summarise(Max_Wind_Speed = max(`WMO_WIND(kts)`, na.rm = TRUE)) %>%     # Get the max wind speed for each group
+  ungroup()
+
+# View the max wind speed summary table
+max_wind_summary
+
+library(gt)
+
+# Ensure Max_Wind_Speed is numeric
+max_wind_summary <- max_wind_summary %>%
+  mutate(Max_Wind_Speed = as.numeric(Max_Wind_Speed))
+
+# Create a visual table for the maximum wind speeds by year and storm type
+max_wind_summary_table <- max_wind_summary %>%
+  gt() %>%
+  tab_header(
+    title = "Maximum Wind Speed by Year and Storm Type (1985-2020)",
+    subtitle = "The highest recorded wind speed (in knots) for each storm type annually"
+  ) %>%
+  cols_label(
+    `SEASON(Year)` = "Year",
+    NATURE = "Storm Type",
+    Max_Wind_Speed = "Max Wind Speed (knots)"
+  ) %>%
+  fmt_number(
+    columns = c(Max_Wind_Speed),
+    decimals = 1
+  ) %>%
+  data_color(
+    columns = c(Max_Wind_Speed),
+    colors = scales::col_numeric(
+      palette = c("lightyellow", "red"),
+      domain = range(max_wind_summary$Max_Wind_Speed, na.rm = TRUE)
+    )
+  ) %>%
+  tab_options(
+    table.font.size = "small",
+    column_labels.font.size = "medium"
+  )
+
+# Display the table
+max_wind_summary_table
+```
+
+```{r h1 task 4}
+library(ggplot2)
+
+ggplot(max_wind_summary, aes(x = factor(`SEASON(Year)`), y = Max_Wind_Speed)) +
+  geom_boxplot(
+    fill = "#A2C8E1",  # Light, soothing blue for the box
+    color = "#3E5C76",  # Darker, contrasting color for the box borders
+    alpha = 0.6,        # Transparency for a soft look
+    outlier.colour = "#F26C4F",  # Outlier points in a soft orange
+    outlier.size = 2,   # Slightly larger outlier points for visibility
+    width = 0.7         # Slightly narrower boxes for better spacing
+  ) +
+  labs(
+    title = "Maximum Wind Speed per Storm (1985-2020)",
+    x = "Year",
+    y = "Maximum Wind Speed (knots)"
+  ) +
+  theme_minimal(base_size = 15) + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 22, face = "bold", color = "#3E5C76"),
+    axis.title = element_text(size = 14, face = "bold", color = "#3E5C76"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "#3E5C76"),  # Smaller text for years
+    axis.text.y = element_text(size = 12, color = "#3E5C76"),
+    panel.grid.major = element_line(color = "gray90", size = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    plot.background = element_rect(fill = "white", color = NA)
+  )
+```
+
+```{r h2 task 1}
+
+```
+
+
