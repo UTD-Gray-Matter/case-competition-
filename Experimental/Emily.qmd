@@ -19,14 +19,14 @@ Historical_Hurricane_1 <- Historical_Hurricane_1[-c(1, 2), ]
 ```{r h1 task2}
 library(dplyr)
 library(gt)
-# Filter for years 1985 to 2020 and group by Year and Storm_Type to get counts
+
+# Filter for years 1985 to 2020 and count distinct types by SID
 storm_summary <- Historical_Hurricane_1 %>%
-  filter(`SEASON(Year)` >= 1985 & `SEASON(Year)` <= 2020) %>%    # Filter for years 1985 to 2020
-  group_by(`SEASON(Year)`, NATURE) %>%             # Group by year and storm type
-  summarise(Storm_Count = n()) %>%           # Count number of storms per type
-  ungroup()
-# View the summary table
-storm_summary
+  filter(`SEASON(Year)` >= 1985 & `SEASON(Year)` <= 2020) %>%     # Filter for years 1985 to 2020
+  select(SID, `SEASON(Year)`, NATURE) %>%                         # Select relevant columns
+  distinct(SID, `SEASON(Year)`, NATURE) %>%                       # Keep distinct storm types per SID
+  group_by(`SEASON(Year)`, NATURE) %>%                            # Group by year and storm type
+  summarise(Storm_Count = n(), .groups = "drop")                  # Count number of unique storms per type
 
 # Create a visual table using gt
 storm_summary_table <- storm_summary %>%
@@ -61,32 +61,50 @@ storm_summary_table
 ```
 
 ```{r h1 task3}
-# Summarize the maximum wind speed by year and storm type
+library(dplyr)
+library(gt)
+
+csv_file_path_HH1 <- "dataset/Historical Hurricane 1.csv"  
+Historical_Hurricane_1 <- read_csv(csv_file_path_HH1)
+
+# Extract the first two rows
+row1 <- as.character(Historical_Hurricane_1[1, ])
+row2 <- as.character(Historical_Hurricane_1[2, ])
+# Combine row 1 and row 2 with row 2 in parentheses, only if row 2 is not NA
+new_column_names <- ifelse(is.na(row2), row1, paste(row1, "(", row2, ")", sep = ""))
+# Assign these combined names as column names
+colnames(Historical_Hurricane_1) <- new_column_names
+# Remove the first two rows since they're now in the headers
+Historical_Hurricane_1 <- Historical_Hurricane_1[-c(1, 2), ]
+
+# Summarize the maximum wind speed by SID and include storm name and year
 max_wind_summary <- Historical_Hurricane_1 %>%
   filter(`SEASON(Year)` >= 1985 & `SEASON(Year)` <= 2020) %>%     # Filter for years 1985 to 2020
-  group_by(`SEASON(Year)`, NATURE) %>%                            # Group by year and storm type
-  summarise(Max_Wind_Speed = max(`WMO_WIND(kts)`, na.rm = TRUE)) %>%     # Get the max wind speed for each group
+  group_by(SID) %>%                                                # Group by unique storm ID
+  summarise(
+    storm_name = first(NAME),                                      # Get the storm name
+    year = first(`SEASON(Year)`),                                  # Get the year of the storm
+    Max_Wind_Speed = max(`WMO_WIND(kts)`, na.rm = TRUE)            # Max wind speed for each storm
+  ) %>%
   ungroup()
-
-# View the max wind speed summary table
-max_wind_summary
-
-library(gt)
 
 # Ensure Max_Wind_Speed is numeric
 max_wind_summary <- max_wind_summary %>%
   mutate(Max_Wind_Speed = as.numeric(Max_Wind_Speed))
 
-# Create a visual table for the maximum wind speeds by year and storm type
+# Determine the range for color scaling, handling any NA values
+wind_speed_range <- range(max_wind_summary$Max_Wind_Speed, na.rm = TRUE)
+
+# Create a visual table for the maximum wind speeds by year and storm name
 max_wind_summary_table <- max_wind_summary %>%
   gt() %>%
   tab_header(
-    title = "Maximum Wind Speed by Year and Storm Type (1985-2020)",
-    subtitle = "The highest recorded wind speed (in knots) for each storm type annually"
+    title = "Maximum Wind Speed by Year and Storm (1985-2020)",
+    subtitle = "The highest recorded wind speed (in knots) for each storm annually"
   ) %>%
   cols_label(
-    `SEASON(Year)` = "Year",
-    NATURE = "Storm Type",
+    storm_name = "Storm Name",
+    year = "Year",
     Max_Wind_Speed = "Max Wind Speed (knots)"
   ) %>%
   fmt_number(
@@ -97,7 +115,7 @@ max_wind_summary_table <- max_wind_summary %>%
     columns = c(Max_Wind_Speed),
     colors = scales::col_numeric(
       palette = c("lightyellow", "red"),
-      domain = range(max_wind_summary$Max_Wind_Speed, na.rm = TRUE)
+      domain = wind_speed_range   # Updated to use calculated range
     )
   ) %>%
   tab_options(
@@ -286,7 +304,7 @@ storm_animation <- ggplot(storm_data_alberto_agg, aes(x = avg_longitude, y = avg
   transition_time(date) +  
   ease_aes('linear')  
 
-anim_save("storm_animation.gif", storm_animation)  
+#anim_save("storm_animation.gif", storm_animation)  
 ```
 
 ```{r h2 task 3}
@@ -346,7 +364,6 @@ ggplot(comparison_summary, aes(x = is_wmo_wind_greater, y = count, fill = is_wmo
 
 ```
 
-
 ```{r uw task 1}
 library(dplyr)
 library(readr)
@@ -405,3 +422,20 @@ Historical_Hurricane_2_renamed <- Historical_Hurricane_2 %>%
 # Save the updated CSV for Hurricane 2
 write_csv(Historical_Hurricane_2_renamed, "dataset/Historical_Hurricane_2_renamed.csv")
 ```
+
+```{r uw task 2}
+# Load your dataset
+Historical_Hurricane_1 <- read_csv("dataset/Historical_Hurricane_1_renamed.csv")
+
+# Calculate storm type counts and save to CSV
+storm_summary <- Historical_Hurricane_1 %>%
+  filter(SEASON_year >= 1985 & SEASON_year <= 2020) %>%    # Filter for years 1985 to 2020
+  group_by(SEASON_year, NATURE, SID) %>%                   # Group by year, storm type, and SID
+  summarise(Storm_Count = n_distinct(SID), .groups = "drop") %>%  # Count distinct storms per type
+  ungroup()
+
+# Save the summary to a CSV file
+write_csv(storm_summary, "dataset/storm_summary.csv")
+```
+
+
