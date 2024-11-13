@@ -3,7 +3,6 @@
 library(readr)
 
 csv_file_path_HH1 <- "dataset/Historical Hurricane 1.csv"  
-# Read the CSV file into a data frame
 Historical_Hurricane_1 <- read_csv(csv_file_path_HH1)
 
 # Extract the first two rows
@@ -141,7 +140,208 @@ ggplot(max_wind_summary, aes(x = factor(`SEASON(Year)`), y = Max_Wind_Speed)) +
 ```
 
 ```{r h2 task 1}
+library(readr)
+library(dplyr)
+library(stringr)
+library(lubridate)
 
+#Load Historical Hurricane 1
+csv_file_path_HH1 <- "dataset/Historical Hurricane 1.csv"  
+Historical_Hurricane_1 <- read_csv(csv_file_path_HH1)
+row1 <- as.character(Historical_Hurricane_1[1, ])
+row2 <- as.character(Historical_Hurricane_1[2, ])
+new_column_names <- ifelse(is.na(row2), row1, paste(row1, "(", row2, ")", sep = ""))
+colnames(Historical_Hurricane_1) <- new_column_names
+Historical_Hurricane_1 <- Historical_Hurricane_1[-c(1, 2), ]
+
+# Load Historical Hurricane 2
+csv_file_path_HH2 <- "dataset/Historical Hurricane 2.csv"
+Historical_Hurricane_2 <- read_csv(csv_file_path_HH2, skip = 2)
+
+# Helper function to convert decimal to POSIXct
+decimal_to_datetime <- function(decimal_values) {
+  # Ensure decimal values are numeric
+  decimal_values <- as.numeric(decimal_values)
+  
+  # Convert the decimal values to the number of days since 1900-01-01
+  base_date <- as.Date("1900-01-01")
+  
+  # Calculate the date-time by adding the decimal number of days to the base date
+  datetime_values <- base_date + decimal_values
+  
+  # Return the result as POSIXct
+  return(as.POSIXct(datetime_values, tz = "UTC"))
+}
+
+# Now, apply the function to both datasets
+Historical_Hurricane_1$ISO_TIME <- decimal_to_datetime(Historical_Hurricane_1$ISO_TIME)
+Historical_Hurricane_2$date <- decimal_to_datetime(Historical_Hurricane_2$date)
+
+# Check the converted values
+head(Historical_Hurricane_1$ISO_TIME)
+head(Historical_Hurricane_2$date)
+
+# Merge the datasets by 'storm_name' and 'NAME', and add 'WMO_WIND(kts)' from H1
+Hurricane_Merged <- Historical_Hurricane_2 %>%
+  left_join(
+    Historical_Hurricane_1 %>%
+      select(NAME, ISO_TIME, `WMO_WIND(kts)`),  # Select 'NAME', 'ISO_TIME', and 'WMO_WIND(kts)' columns from H1
+    by = c("storm_name" = "NAME", "date" = "ISO_TIME")  # Merge on 'storm_name' and 'date'
+  )
+
+Hurricane_Merged
 ```
 
+```{r h2 task 2}
+library(dplyr)
+library(geosphere)
 
+# Function to calculate the distance between two points (lat, lon) in miles
+haversine_distance <- function(lat1, lon1, lat2, lon2) {
+  distVincentySphere(c(lon1, lat1), c(lon2, lat2))  # Ensure the coordinates are correctly formatted
+}
+
+# Calculate the area of the storm (in square miles) based on the distance between two points
+storm_area_estimation <- function(lat1, lon1, lat2, lon2) {
+  dist_lat <- haversine_distance(lat1, lon1, lat2, lon1)  # distance in latitude direction
+  dist_lon <- haversine_distance(lat1, lon1, lat1, lon2)  # distance in longitude direction
+  storm_area <- dist_lat * dist_lon  # area in square miles
+  return(storm_area)
+}
+
+# Create a new dataset for storm area calculations based on consecutive rows
+storm_area_data_consecutive <- Historical_Hurricane_2 %>%
+  arrange(storm_name, date) %>%  # Ensure rows are sorted by storm name and date
+  group_by(storm_name) %>%
+  mutate(
+    # Use lag to get the previous row's latitudes and longitudes for the same storm
+    prev_lat = lag(latitude),
+    prev_lon = lag(longitude)
+  ) %>%
+  # Only keep rows where both prev_lat and prev_lon are valid
+  filter(!is.na(prev_lat) & !is.na(prev_lon)) %>%
+  mutate(
+    # Calculate the storm area for consecutive rows where previous data exists
+    storm_area_sq_miles = mapply(storm_area_estimation, prev_lat, prev_lon, latitude, longitude)
+  ) %>%
+  ungroup() %>%
+  # Filter out any rows where the storm area calculation is zero
+  filter(storm_area_sq_miles > 0) %>%
+  # Format the storm area with commas for readability
+  mutate(
+    storm_area_sq_miles = format(storm_area_sq_miles, big.mark = ",", scientific = FALSE)
+  ) %>%
+  # Select only the relevant columns for the output table
+  select(storm_name, date, latitude, longitude, storm_area_sq_miles)
+
+# Sort by date after processing the data
+storm_area_data_consecutive <- storm_area_data_consecutive %>%
+  arrange(date, storm_name) 
+
+# Print the storm area data with consecutive row calculation
+print(storm_area_data_consecutive)
+```
+
+```{r h2 task 2.5}
+library(ggplot2)
+library(gganimate)
+library(gifski)
+library(av)
+library(dplyr)
+
+# Ensure date column is in Date format
+storm_area_data_consecutive$date <- as.Date(storm_area_data_consecutive$date, format = "%Y-%m-%d")
+
+# Filter the data for storm_name 'ALBERTO' and the date range between 08/08/1988 and 08/10/1988
+storm_data_alberto <- storm_area_data_consecutive %>%
+  filter(storm_name == "ALBERTO" & date >= "1988-08-08" & date <= "1988-08-10")
+
+# Remove commas and convert storm_area_sq_miles to numeric
+storm_data_alberto$storm_area_sq_miles <- as.numeric(gsub(",", "", storm_data_alberto$storm_area_sq_miles))
+
+# Check for NAs in key columns and handle them
+storm_data_alberto <- storm_data_alberto %>%
+  filter(!is.na(storm_area_sq_miles) & !is.na(longitude) & !is.na(latitude) & !is.na(date))
+
+# Ensure storm_name is a factor or character for ggplot to handle
+storm_data_alberto$storm_name <- as.factor(storm_data_alberto$storm_name)
+
+# Aggregate data by date (calculating mean values for each day)
+storm_data_alberto_agg <- storm_data_alberto %>%
+  group_by(storm_name, date) %>%
+  summarise(
+    avg_latitude = mean(latitude),
+    avg_longitude = mean(longitude),
+    avg_storm_area_sq_miles = mean(storm_area_sq_miles),
+    .groups = "drop"
+  )
+
+storm_animation <- ggplot(storm_data_alberto_agg, aes(x = avg_longitude, y = avg_latitude, size = avg_storm_area_sq_miles, color = storm_name)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~storm_name, scales = "free") +
+  scale_size_continuous(range = c(1, 10)) +  
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Storm Area Over Time", x = "Longitude", y = "Latitude") +
+  transition_time(date) +  
+  ease_aes('linear')  
+
+anim_save("storm_animation.gif", storm_animation)  
+```
+
+```{r h2 task 3}
+library(dplyr)
+library(readr)
+
+# Assuming 'Hurricane_Merged' contains 'wind_speed' and 'WMO_WIND(kts)'
+wind_speed_comparison <- Hurricane_Merged %>%
+  filter(!is.na(wind_speed) & !is.na(`WMO_WIND(kts)`)) %>%  # Remove NA values in both columns
+  # Create the new column to check if WMO_WIND(kts) is greater than wind_speed
+  mutate(
+    is_wmo_wind_greater = if_else(`WMO_WIND(kts)` > wind_speed, "WMO > Wind Speed", 
+                                  if_else(`WMO_WIND(kts)` < wind_speed, "WMO < Wind Speed", "WMO = Wind Speed"))
+  ) %>%
+  # Select the relevant columns for output
+  select(storm_name, wind_speed, `WMO_WIND(kts)`, date, is_wmo_wind_greater)
+
+# Print the result
+print(wind_speed_comparison)
+
+
+# Create the graph to visualize the comparison
+ggplot(wind_speed_comparison, aes(x = storm_name, fill = is_wmo_wind_greater)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(
+    title = "Comparison of WMO_WIND(kts) vs Wind Speed",
+    x = "Storm Name",
+    y = "Count",
+    fill = "Comparison"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Aggregate the counts of each comparison category
+comparison_summary <- wind_speed_comparison %>%
+  group_by(is_wmo_wind_greater) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+# Print the summary table to check the counts
+print(comparison_summary)
+
+# Create a bar plot showing the total counts of greater, equal, and under comparisons
+ggplot(comparison_summary, aes(x = is_wmo_wind_greater, y = count, fill = is_wmo_wind_greater)) +
+  geom_bar(stat = "identity") +  # Use the count as the height of the bars
+  theme_minimal() +
+  labs(
+    title = "Total Comparison of WMO_WIND(kts) vs Wind Speed",
+    x = "Comparison Type",
+    y = "Total Count",
+    fill = "Comparison"
+  ) +
+  scale_fill_manual(values = c("WMO > Wind Speed" = "red", "WMO < Wind Speed" = "blue", "WMO = Wind Speed" = "green")) +  # Optional color scheme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+
+
+```
