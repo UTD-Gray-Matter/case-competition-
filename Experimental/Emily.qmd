@@ -345,3 +345,63 @@ ggplot(comparison_summary, aes(x = is_wmo_wind_greater, y = count, fill = is_wmo
 
 
 ```
+
+
+```{r uw task 1}
+library(dplyr)
+library(readr)
+#Load Historical Hurricane 1
+csv_file_path_HH1 <- "dataset/Historical Hurricane 1.csv"  
+Historical_Hurricane_1 <- read_csv(csv_file_path_HH1)
+row1 <- as.character(Historical_Hurricane_1[1, ])
+row2 <- as.character(Historical_Hurricane_1[2, ])
+new_column_names <- ifelse(is.na(row2), row1, paste(row1, "(", row2, ")", sep = ""))
+colnames(Historical_Hurricane_1) <- new_column_names
+Historical_Hurricane_1 <- Historical_Hurricane_1[-c(1, 2), ]
+
+# Load Historical Hurricane 2
+csv_file_path_HH2 <- "dataset/Historical Hurricane 2.csv"
+Historical_Hurricane_2 <- read_csv(csv_file_path_HH2, skip = 2)
+
+# Helper function to convert decimal to POSIXct
+decimal_to_datetime <- function(decimal_values) {
+  # Ensure decimal values are numeric
+  decimal_values <- as.numeric(decimal_values)
+  
+  # Convert the decimal values to the number of days since 1900-01-01
+  base_date <- as.Date("1900-01-01")
+  
+  # Calculate the date-time by adding the decimal number of days to the base date
+  datetime_values <- base_date + decimal_values
+  
+  # Return the result as POSIXct
+  return(as.POSIXct(datetime_values, tz = "UTC"))
+}
+
+# Now, apply the function to both datasets
+Historical_Hurricane_1$ISO_TIME <- decimal_to_datetime(Historical_Hurricane_1$ISO_TIME)
+Historical_Hurricane_2$date <- decimal_to_datetime(Historical_Hurricane_2$date)
+
+
+# Rename the columns
+Historical_Hurricane_1_renamed <- Historical_Hurricane_1 %>%
+  rename(
+    SEASON_year = `SEASON(Year)`,
+    storm_name = NAME,
+    BASIN = BASIN,
+    SUBBASIN = SUBBASIN,
+    TRACK_TYPE = TRACK_TYPE,
+    ISO_TIME = ISO_TIME  
+  ) 
+
+# Save the renamed CSV
+write_csv(Historical_Hurricane_1_renamed, "dataset/Historical_Hurricane_1_renamed.csv")
+
+# Extract the year from the 'date' column and create a new 'YEAR' column
+Historical_Hurricane_2_renamed <- Historical_Hurricane_2 %>%
+  mutate(YEAR = format(date, "%Y")) %>%
+  select(storm_name, YEAR, everything())  # Move YEAR column to be the second column
+
+# Save the updated CSV for Hurricane 2
+write_csv(Historical_Hurricane_2_renamed, "dataset/Historical_Hurricane_2_renamed.csv")
+```
