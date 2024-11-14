@@ -130,7 +130,7 @@ max_wind_summary_table
 ```{r h1 task 4}
 library(ggplot2)
 
-ggplot(max_wind_summary, aes(x = factor(`SEASON(Year)`), y = Max_Wind_Speed)) +
+ggplot(max_wind_summary, aes(x = factor(year), y = Max_Wind_Speed)) +
   geom_boxplot(
     fill = "#A2C8E1",  # Light, soothing blue for the box
     color = "#3E5C76",  # Darker, contrasting color for the box borders
