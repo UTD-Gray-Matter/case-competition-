@@ -1,0 +1,12 @@
+name: Gray_Matter
+title: Gray_Matter
+username: emilylin4
+account: emilylin4
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13343804
+bundleId: 9364607
+url: https://emilylin4.shinyapps.io/Gray_Matter/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

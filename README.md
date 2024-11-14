@@ -13,13 +13,13 @@
 - **Status**: Completed
 
 ### Exposures
-- **Status**: In Progress
+- **Status**: Completed
 
 ### Management Request 1
-- **Status**: In Progress
+- **Status**: Completed
 
 ### Management Request 2
-- **Status**: In Progress
+- **Status**: Completed
 
 ### UW Report
-- **Status**: Attempting
+- **Status**: Completed
