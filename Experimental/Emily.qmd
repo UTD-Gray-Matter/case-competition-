@@ -436,6 +436,37 @@ storm_summary <- Historical_Hurricane_1 %>%
 
 # Save the summary to a CSV file
 write_csv(storm_summary, "dataset/storm_summary.csv")
+
+# Load your dataset
+Historical_Hurricane_1 <- read_csv("dataset/Historical_Hurricane_1_renamed.csv")
+
+# Summarize the maximum wind speed by SID and include storm name and year
+max_wind_summary <- Historical_Hurricane_1 %>%
+  filter(SEASON_year >= 1985 & SEASON_year <= 2020) %>%     # Filter for years 1985 to 2020
+  group_by(SID) %>%                                                # Group by unique storm ID
+  summarise(
+    storm_name = first(storm_name),                                      # Get the storm name
+    year = first(SEASON_year),                                  # Get the year of the storm
+    Max_Wind_Speed = max(`WMO_WIND(kts)`, na.rm = TRUE)            # Max wind speed for each storm
+  ) %>%
+  ungroup()
+
+# Ensure Max_Wind_Speed is numeric
+max_wind_summary <- max_wind_summary %>%
+  mutate(Max_Wind_Speed = as.numeric(Max_Wind_Speed))
+
+# Determine the range for color scaling, handling any NA values
+wind_speed_range <- range(max_wind_summary$Max_Wind_Speed, na.rm = TRUE)
+
+# Save the data frame as a CSV file
+write.csv(max_wind_summary, "dataset/max_wind_summary.csv", row.names = FALSE)
 ```
 
+```{r uq task 3}
+library(readr)
 
+exposures <- read_csv("dataset/Exposures.csv", skip = 4)
+
+# Save the summary to a CSV file
+write_csv(exposures, "dataset/exposures_summary.csv")
+```
