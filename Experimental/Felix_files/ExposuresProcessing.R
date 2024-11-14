@@ -1,3 +1,4 @@
+#install.packages("dplyr")
 library(dplyr)
 
 # Adjust as needed
@@ -35,7 +36,48 @@ plot_location_feature_ts <- function(df, location, featureEnumString) {
          xlab = "year", ylab = "value", main = paste0("Location ", location, ": ", featureEnumString))
   }
   
-  dev.off()
+  invisible(dev.off())
+}
+
+# Function invocation examples for entire portfolio
+# Plot all of the features:  > plot_portfolio_feature_ts(exposuresData)
+# Plot just one of the features:  > plot_portfolio_feature_ts(exposuresData, featureEnum()$Total.Insured.Value)
+plot_portfolio_feature_ts <- function(df, featureEnumString) {
+  
+  # Augment the dataframe with additional features not found in raw dataset
+  df <- transform(df, Loss.Ratio=Losses...Non.Catastrophe/Premium)
+  df <- transform(df, Premium.Per.100.TIV=Premium/(Total.Insured.Value/100.0))
+  df <- transform(df, Loss.Cost=Losses...Non.Catastrophe/Total.Insured.Value)
+  
+  # Either plot all the features or just one of the features for the given location
+  if (missing(featureEnumString)) {
+    for (feat in featureEnum()) {
+      png(filename = paste0(outputDir, "/Portfolio/", feat, ".png"), width = 6000, height = 4000, res = 300)
+      subset_df = df[,c('PolicyYear', feat)]
+      boxplot(df[[feat]] ~ PolicyYear,
+              data=subset_df,
+              main=paste0("Portfolio data for ", feat),
+              xlab="Year",
+              ylab=feat,
+              col="orange",
+              border="brown"
+      )
+      invisible(dev.off())
+    }
+  }
+  else {
+    png(filename = paste0(outputDir, "/Portfolio/", featureEnumString, ".png"), width = 6000, height = 4000, res = 300)
+    subset_df = df[,c('PolicyYear', featureEnumString)]
+    boxplot(df[[featureEnumString]] ~ PolicyYear,
+            data=subset_df,
+            main=paste0("Portfolio data for ", featureEnumString),
+            xlab="Year",
+            ylab=featureEnumString,
+            col="orange",
+            border="brown"
+    )
+    invisible(dev.off())
+  }
 }
 
 setwd(scriptDir)
@@ -64,7 +106,22 @@ TARGET_LOCATION <- 2
 ## 6) All plots aggregated for a location
 ## 6a) One Location
 #plot_location_feature_ts(exposuresData, TARGET_LOCATION)
-## 6b) All locations
+## 6b) Loop through all locations, one-by-one
 for (i in 1:35) {
   plot_location_feature_ts(exposuresData, i)
 }
+
+##### For the entire portfolio (Management Request 1)
+##########
+# 1) Loss ratio = Losses / Premium
+#plot_portfolio_feature_ts(exposuresData, featureEnum()$Loss.Ratio)
+# 2) TIV
+#plot_portfolio_feature_ts(exposuresData, featureEnum()$Total.Insured.Value)
+# 3) Premium
+#plot_portfolio_feature_ts(exposuresData, featureEnum()$Premium)
+# 4) Premium per $100 TIV over time
+#plot_portfolio_feature_ts(exposuresData, featureEnum()$Premium.Per.100.TIV)
+# 5) Loss cost = Losses / TIV
+#plot_portfolio_feature_ts(exposuresData, featureEnum()$Loss.Cost)
+# 6) All plots aggregated
+plot_portfolio_feature_ts(exposuresData)
